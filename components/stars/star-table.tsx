@@ -16,6 +16,10 @@ import { ExportButton } from "@/components/stars/export-button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { StarLeaderboardRow } from "@/lib/stars";
 
+function shortName(full: string) {
+  return full.includes("/") ? full.split("/").slice(1).join("/") : full;
+}
+
 function formatUpdatedAt(value: string | null) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("zh-CN", {
@@ -105,7 +109,7 @@ export function StarTable({
               className="text-xs font-medium hover:text-primary"
               onClick={(e) => e.stopPropagation()}
             >
-              {row.original.fullName}
+              {shortName(row.original.fullName)}
             </Link>
             <p className="mt-0.5 max-w-72 truncate text-[11px] text-muted-foreground">
               {row.original.topic}
