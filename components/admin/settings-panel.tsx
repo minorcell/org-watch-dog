@@ -20,7 +20,7 @@ export function SettingsPanel() {
     <div>
       <div className="mb-6">
         <h1 className="text-lg font-semibold tracking-tight">系统设置</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">监控仓库、调度任务与人员管理</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">管理监控仓库与调度任务</p>
       </div>
 
       {/* Tabs */}

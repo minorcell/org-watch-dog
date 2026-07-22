@@ -10,6 +10,17 @@ import { RepoDetailModal } from "@/components/stars/repo-detail-modal";
 import { Switch } from "@/components/ui/switch";
 import type { Repo } from "@/lib/database";
 
+function timeAgo(date: string | null) {
+  if (!date) return null;
+  const diff = Date.now() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "刚刚";
+  if (mins < 60) return `${mins} 分钟前`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  return `${Math.floor(hours / 24)} 天前`;
+}
+
 export function MonitoringPanel() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [total, setTotal] = useState(0);
@@ -17,6 +28,7 @@ export function MonitoringPanel() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [toggling, setToggling] = useState<Set<string>>(new Set());
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ githubRepo: string } | null>(null);
@@ -30,21 +42,28 @@ export function MonitoringPanel() {
       setRepos(data.items ?? data);
       setTotal(data.total ?? (data.items ? data.items.length : data.length));
       setMonitoredCount(data.monitoredCount ?? 0);
+      // Capture last sync time from the first synced repo
+      const syncedAt = (data.items ?? data).find((r: Repo) => r.syncedAt)?.syncedAt ?? null;
+      if (syncedAt) setLastSyncAt(syncedAt);
     }
     setLoading(false);
   }, [page, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Auto-dismiss sync message
+  useEffect(() => {
+    if (!syncMsg) return;
+    const timer = setTimeout(() => setSyncMsg(""), 5000);
+    return () => clearTimeout(timer);
+  }, [syncMsg]);
+
   async function toggleMonitor(githubRepo: string, current: boolean) {
     setToggling((prev) => new Set(prev).add(githubRepo));
-    await fetch("/api/admin/repos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: current ? "unmonitor" : "monitor", githubRepo }),
-    });
+    await fetch("/api/admin/repos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: current ? "unmonitor" : "monitor", githubRepo }) });
     setRepos((prev) => prev.map((r) => r.githubRepo === githubRepo ? { ...r, monitoringEnabled: !current } : r));
     setToggling((prev) => { const next = new Set(prev); next.delete(githubRepo); return next; });
+    setMonitoredCount((prev) => current ? prev - 1 : prev + 1);
   }
 
   async function syncRepos() {
@@ -56,6 +75,7 @@ export function MonitoringPanel() {
     if (res.ok) {
       const r = await fetch(`/api/admin/repos?page=1&pageSize=${pageSize}`);
       if (r.ok) { const d = await r.json(); setRepos(d.items ?? d); setTotal(d.total ?? (d.items ? d.items.length : d.length)); setMonitoredCount(d.monitoredCount ?? 0); }
+      setLastSyncAt(new Date().toISOString());
     }
     setSyncing(false);
   }
@@ -67,7 +87,6 @@ export function MonitoringPanel() {
     setRepos((prev) => prev.filter((r) => r.githubRepo !== deleteTarget.githubRepo));
   }
 
-  // Client-side sort: monitored first
   const sorted = useMemo(() => {
     const monitored = repos.filter((r) => r.monitoringEnabled);
     const unmonitored = repos.filter((r) => !r.monitoringEnabled);
@@ -78,14 +97,15 @@ export function MonitoringPanel() {
     return <div className="py-16 text-center"><LoaderCircle className="mx-auto size-5 animate-spin text-muted-foreground" /><p className="mt-3 text-xs text-muted-foreground">加载中…</p></div>;
   }
 
+  const relativeTime = timeAgo(lastSyncAt);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-muted-foreground">
-          从 GitHub 同步仓库列表，开启监控后纳入 Star 采集
-          <span className="mx-1.5 text-border">|</span>
           共 {total} 个仓库
-          <span className="ml-1 text-emerald-600 dark:text-emerald-500 font-medium">{monitoredCount} 个监控中</span>
+          <span className="ml-1.5 text-emerald-600 dark:text-emerald-500 font-medium">{monitoredCount} 个监控中</span>
+          {relativeTime && <span className="ml-2 text-muted-foreground/60">· 上次同步 {relativeTime}</span>}
         </p>
         <button type="button" onClick={syncRepos} disabled={syncing} className="inline-flex h-7 items-center gap-1.5 rounded-md bg-foreground px-2.5 text-[11px] font-medium text-background hover:bg-foreground/90 disabled:opacity-40">
           {syncing ? <LoaderCircle className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}从 GitHub 刷新
@@ -106,7 +126,10 @@ export function MonitoringPanel() {
             </tr></thead>
             <tbody>
               {sorted.length === 0 ? (
-                <tr><td colSpan={5} className="h-24 text-center text-xs text-muted-foreground">暂无仓库，点击"从 GitHub 刷新"</td></tr>
+                <tr><td colSpan={5} className="h-32 text-center text-xs text-muted-foreground">
+                  <p className="font-medium">还没有仓库数据</p>
+                  <p className="mt-1 text-[11px]">点击右上角「从 GitHub 刷新」从组织同步仓库列表</p>
+                </td></tr>
               ) : sorted.map((r) => (
                 <tr
                   key={r.githubRepo}
