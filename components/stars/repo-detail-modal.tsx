@@ -1,17 +1,69 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, LoaderCircle, X } from "lucide-react";
+import { ExternalLink, LoaderCircle, TrendingUp, X } from "lucide-react";
 
 import type { Repo } from "@/lib/database";
 
+type ChartPoint = Record<string, string | number | null>;
+
+function Sparkline({ data, repo }: { data: ChartPoint[]; repo: string }) {
+  const points = useMemo(() => {
+    return data
+      .map((d) => (typeof d[repo] === "number" ? d[repo] as number : null))
+      .filter((v): v is number => v !== null);
+  }, [data, repo]);
+
+  if (points.length < 2) return null;
+
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const w = 280;
+  const h = 48;
+  const pad = 2;
+
+  const pathD = points
+    .map((v, i) => {
+      const x = pad + (i / (points.length - 1)) * (w - pad * 2);
+      const y = pad + (1 - (v - min) / range) * (h - pad * 2);
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  // SVG gradient fill
+  const gradientId = `spark-${repo.replace(/[^a-zA-Z0-9]/g, "")}`;
+
+  return (
+    <div className="mt-3 rounded-lg border bg-muted/20 p-3">
+      <div className="flex items-center gap-1.5 mb-2">
+        <TrendingUp className="size-3 text-muted-foreground" />
+        <span className="text-[11px] font-medium">Star 趋势</span>
+        <span className="text-[10px] text-muted-foreground ml-auto">{points[0]} → {points[points.length - 1]}</span>
+      </div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-12">
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={`${pathD} L${w - pad},${h - pad} L${pad},${h - pad} Z`} fill={`url(#${gradientId})`} />
+        <path d={pathD} fill="none" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
 export function RepoDetailModal({
   repoFullName,
+  chartData,
   open,
   onClose,
 }: {
   repoFullName: string | null;
+  chartData?: ChartPoint[];
   open: boolean;
   onClose: () => void;
 }) {
@@ -21,8 +73,7 @@ export function RepoDetailModal({
 
   useEffect(() => {
     if (!open || !repoFullName) return;
-    setLoading(true);
-    setError("");
+    setLoading(true); setError("");
     fetch(`/api/admin/repos?detail=${encodeURIComponent(repoFullName)}`)
       .then((res) => res.ok ? res.json() : Promise.reject(new Error("未找到")))
       .then(setRepo)
@@ -55,7 +106,6 @@ export function RepoDetailModal({
         ) : repo ? (
           <div className="grid gap-4">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">仓库</p>
               <Link href={`https://github.com/${repo.githubRepo}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium hover:text-primary">
                 {repo.githubRepo}<ExternalLink className="size-3 text-muted-foreground" />
               </Link>
@@ -75,6 +125,8 @@ export function RepoDetailModal({
                 <div className="mt-1.5 flex flex-wrap gap-1.5">{repo.topics.map((t) => <span key={t} className="rounded-full bg-muted px-2 py-0.5 text-[11px]">{t}</span>)}</div>
               </div>
             )}
+
+            {chartData && repoFullName && <Sparkline data={chartData} repo={repoFullName} />}
           </div>
         ) : null}
       </div>

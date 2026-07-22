@@ -12,12 +12,11 @@ import {
   YAxis,
 } from "recharts";
 
-const lineColors = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
+const palette = [
+  "var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)",
+  "#7c3aed", "#db2777", "#ea580c", "#0891b2", "#65a30d",
+  "#9333ea", "#e11d48", "#d97706", "#0e7490", "#4d7c0f",
+  "#6d28d9", "#be185d", "#b45309", "#155e75", "#3f6212",
 ];
 
 type ChartPoint = Record<string, string | number | null>;
@@ -90,7 +89,7 @@ export function StarChart({
               <i
                 className="size-2 shrink-0 rounded-full transition-transform"
                 style={{
-                  backgroundColor: lineColors[index % lineColors.length],
+                  backgroundColor: palette[index % palette.length],
                   transform: isHovered && !isHidden ? "scale(1.3)" : "scale(1)",
                 }}
               />
@@ -141,14 +140,14 @@ export function StarChart({
             />
             {renderedRepos.map((repository, index) => {
               const isHovered = hoveredRepo === repository;
-              const colorIndex = activeRepos.indexOf(repository) % lineColors.length;
+              const colorIndex = activeRepos.indexOf(repository) % palette.length;
               return (
                 <Line
                   key={repository}
                   type="monotone"
                   dataKey={repository}
                   name={repository}
-                  stroke={lineColors[colorIndex]}
+                  stroke={palette[colorIndex]}
                   strokeWidth={isHovered ? 2.5 : 1.5}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 2, fill: "var(--card)" }}

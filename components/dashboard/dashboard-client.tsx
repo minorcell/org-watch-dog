@@ -15,7 +15,7 @@ const RepoDetailModal = dynamic(() => import("@/components/stars/repo-detail-mod
   ssr: false,
 });
 
-const MAX_CHART_SERIES = 5;
+const MAX_CHART_SERIES = 20;
 
 export function DashboardClient({
   chartData,
@@ -95,6 +95,7 @@ export function DashboardClient({
       {selectedRepo && (
         <RepoDetailModal
           repoFullName={selectedRepo}
+          chartData={chartData}
           open={true}
           onClose={() => setSelectedRepo(null)}
         />
