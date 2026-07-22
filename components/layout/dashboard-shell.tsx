@@ -39,7 +39,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="flex h-dvh min-h-dvh overflow-hidden">
         <aside className="flex w-52 shrink-0 flex-col border-r border-border bg-sidebar" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-12 shrink-0 items-center border-b border-border bg-background px-6" />
           <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6">{children}</main>
         </div>
       </div>
@@ -88,8 +87,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center border-b border-border bg-background px-6">
-        </header>
         <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6">{children}</main>
       </div>
     </div>
