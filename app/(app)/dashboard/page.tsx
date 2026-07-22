@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AlertTriangle, CalendarClock, Database, FolderGit2, Star, TrendingUp } from "lucide-react";
 
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
+import { StatTiles } from "@/components/dashboard/stat-tiles";
 import { RefreshButton } from "@/components/stars/refresh-button";
 import { RangeSelector } from "@/components/stars/range-selector";
 import { ToastProvider } from "@/components/ui/toast";
@@ -97,7 +98,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         ) : null}
 
         {/* Stat tiles */}
-        <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Star 摘要">
+        <StatTiles>
           <StatTile
             icon={Star}
             label="当前 Star 总数"
@@ -123,7 +124,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             label="最近快照"
             value={formatSnapshotDate(data.lastSnapshotAt)}
           />
-        </section>
+        </StatTiles>
 
         {/* Chart + Table (linked via shared filter state) */}
         <DashboardClient

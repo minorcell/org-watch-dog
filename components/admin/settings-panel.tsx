@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Monitor, Timer } from "lucide-react";
 
 const MonitoringPanel = dynamic(() => import("@/components/admin/monitoring-panel").then((m) => ({ default: m.MonitoringPanel })), {
@@ -46,8 +47,17 @@ export function SettingsPanel() {
         ))}
       </div>
 
-      {tab === "monitoring" && <MonitoringPanel />}
-      {tab === "scheduler" && <SchedulerPanel />}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.15, ease: "easeOut" as const }}
+        >
+          {tab === "monitoring" ? <MonitoringPanel /> : <SchedulerPanel />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
