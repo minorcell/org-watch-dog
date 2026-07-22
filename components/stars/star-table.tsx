@@ -13,6 +13,7 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink, Search } from "lucide-react";
 
 import { ExportButton } from "@/components/stars/export-button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { StarLeaderboardRow } from "@/lib/stars";
 
 function formatUpdatedAt(value: string | null) {
@@ -216,17 +217,17 @@ export function StarTable({
             className="h-7 w-full rounded-md border bg-transparent pl-7 pr-2 text-[11px] outline-none transition-colors placeholder:text-muted-foreground/50 focus-visible:border-foreground/20 focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
-        <select
-          id="visibility-filter"
-          value={visibility}
-          onChange={(event) => onVisibilityChange(event.target.value)}
-          className="h-7 rounded-md border bg-transparent px-2 text-[11px] outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <option value="all">全部可见性</option>
-          <option value="public">公开仓库</option>
-          <option value="private">私有仓库</option>
-          <option value="unknown">暂无快照</option>
-        </select>
+        <Select value={visibility} onValueChange={(v) => v && onVisibilityChange(v)}>
+          <SelectTrigger size="sm" className="h-7 w-auto min-w-0 gap-1 border bg-transparent px-2 text-[11px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部可见性</SelectItem>
+            <SelectItem value="public">公开仓库</SelectItem>
+            <SelectItem value="private">私有仓库</SelectItem>
+            <SelectItem value="unknown">暂无快照</SelectItem>
+          </SelectContent>
+        </Select>
         <span className="text-[11px] text-muted-foreground">
           {filteredData.length} / {data.length}
         </span>

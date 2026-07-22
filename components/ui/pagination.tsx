@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const PAGE_SIZES = [10, 20, 50, 100] as const;
 
@@ -24,15 +25,16 @@ export function Pagination({
     <div className="flex items-center justify-between px-4 py-2">
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
         <span>每页</span>
-        <select
-          value={pageSize}
-          onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="h-6 rounded border bg-transparent px-1 text-[11px] outline-none"
-        >
-          {PAGE_SIZES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+        <Select value={String(pageSize)} onValueChange={(v) => v && onPageSizeChange(Number(v))}>
+          <SelectTrigger size="sm" className="h-6 w-auto min-w-0 gap-1 border bg-transparent px-1 text-[11px] [&_svg]:size-3">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZES.map((s) => (
+              <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <span>条，共 {total} 条</span>
       </div>
 
