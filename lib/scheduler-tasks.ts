@@ -58,7 +58,7 @@ export async function recordRun() {
   const url = getDatabaseUrl();
   if (!url) return;
   const sql = neon(url);
-  await sql`INSERT INTO scheduler_runs (ran_at) VALUES (NOW())`;
+  await sql`INSERT INTO scheduler_runs (ran_at, results) VALUES (NOW(), '{}'::jsonb)`;
 }
 
 export async function getLastRun() {

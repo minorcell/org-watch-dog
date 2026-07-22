@@ -50,7 +50,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const hasGrowthData = data.leaderboard.some((repository) => repository.growth !== null);
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="mx-auto w-full">
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
