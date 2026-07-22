@@ -2,14 +2,17 @@
   "name": "xe-watch-dog",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "auth:hash": "node scripts/hash-password.mjs",
-    "auth:hash-b64": "node scripts/hash-password-b64.mjs",
-    "auth:secret": "node scripts/generate-secret.mjs"
+    "auth:hash": "npx tsx scripts/hash-password.ts",
+    "auth:hash-b64": "npx tsx scripts/hash-password-b64.ts",
+    "auth:secret": "npx tsx scripts/generate-secret.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -36,6 +39,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5.9.3"
   }
 }
