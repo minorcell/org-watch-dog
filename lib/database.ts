@@ -211,8 +211,7 @@ export async function ensureOrganizationSchema() {
   await sql`
     CREATE TABLE IF NOT EXISTS scheduler_runs (
       id BIGSERIAL PRIMARY KEY,
-      ran_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      results JSONB NOT NULL
+      ran_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle, Clock, LoaderCircle, XCircle } from "lucide-react";
+import { Clock, LoaderCircle } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
 import type { SchedulerTask } from "@/lib/database";
@@ -18,7 +18,7 @@ function timeAgo(date: string) {
 
 export function SchedulerPanel() {
   const [tasks, setTasks] = useState<SchedulerTask[]>([]);
-  const [lastRun, setLastRun] = useState<{ tasks: { name: string; ok: boolean; message: string }[]; ranAt: string; mode?: string } | null>(null);
+  const [lastRun, setLastRun] = useState<{ ranAt: string; mode?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<Set<string>>(new Set());
 
@@ -74,32 +74,15 @@ export function SchedulerPanel() {
           <Clock className="size-3.5 text-muted-foreground" />
           运行状态
         </h3>
-
         <div className="grid gap-2 text-xs">
           <div className="flex justify-between">
             <span className="text-muted-foreground">调度模式</span>
             <span className="font-mono">{mode}</span>
           </div>
-
-          {lastRun ? (
-            <>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">上次执行</span>
-                <span>{timeAgo(lastRun.ranAt)}</span>
-              </div>
-              {lastRun.tasks.map((t) => (
-                <div key={t.name} className="flex items-center justify-between pl-3 border-l-2 border-border/50">
-                  <span className="text-muted-foreground font-mono text-[11px]">{t.name}</span>
-                  <span className={`inline-flex items-center gap-1 text-[11px] ${t.ok ? "text-emerald-600 dark:text-emerald-500" : "text-destructive"}`}>
-                    {t.ok ? <CheckCircle className="size-3" /> : <XCircle className="size-3" />}
-                    {t.message}
-                  </span>
-                </div>
-              ))}
-            </>
-          ) : (
-            <p className="text-muted-foreground">尚未执行过调度任务</p>
-          )}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">上次执行</span>
+            <span>{lastRun ? timeAgo(lastRun.ranAt) : "尚未执行"}</span>
+          </div>
         </div>
       </div>
     </div>
