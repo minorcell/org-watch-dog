@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, GitBranch, Globe, LineChart, Star } from "lucide-react";
+import { ArrowRight, Cloud, GitBranch, Globe, LineChart, Star } from "lucide-react";
 import { motion } from "motion/react";
 
 import { LoginModal } from "@/components/auth/login-modal";
@@ -66,8 +66,6 @@ export function HomeContent() {
             className="mx-auto mt-6 max-w-md text-[15px] leading-relaxed text-muted-foreground"
           >
             从 GitHub 拉取仓库数据、追踪 Star 趋势、分析团队指标。
-            <br />
-            基于 Vercel + Neon 零成本托管，开箱即用。
           </motion.p>
 
           <motion.div
@@ -94,11 +92,12 @@ export function HomeContent() {
           </motion.div>
         </div>
 
-        <div className="relative z-10 mt-20 grid max-w-2xl gap-4 sm:grid-cols-3">
+        <div className="relative z-10 mt-20 grid max-w-3xl gap-4 sm:grid-cols-4">
           {[
             { icon: Star, title: "Star 趋势", desc: "自动采集，可视化图表与分析" },
             { icon: Globe, title: "仓库管理", desc: "实时同步组织仓库列表" },
             { icon: LineChart, title: "调度引擎", desc: "可扩展的任务队列系统" },
+            { icon: Cloud, title: "零成本托管", desc: "Vercel + Neon 免费方案，开箱即用" },
           ].map((f, i) => (
             <motion.div
               key={f.title}
