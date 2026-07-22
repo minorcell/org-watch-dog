@@ -177,444 +177,337 @@ export async function getLatestStarSnapshots(): Promise<StarSnapshot[]> {
   return z.array(snapshotRowSchema).parse(rows);
 }
 
-// ── Organization schema ────────────────────────────────────────
+// ── Organization schema (3-table model) ─────────────────────
 
 export async function ensureOrganizationSchema() {
   const sql = getSql();
   if (!sql) throw new Error("DATABASE_URL 尚未配置");
 
   await sql`
-    CREATE TABLE IF NOT EXISTS org_projects (
+    CREATE TABLE IF NOT EXISTS people (
       id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      topic TEXT NOT NULL DEFAULT '',
+      github_id TEXT NOT NULL UNIQUE,
+      real_name TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS org_people (
+    CREATE TABLE IF NOT EXISTS repos (
       id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      github_id TEXT NOT NULL DEFAULT '',
+      github_repo TEXT NOT NULL UNIQUE,
+      description TEXT,
+      homepage_url TEXT,
+      topics TEXT[] DEFAULT '{}',
+      language TEXT,
+      visibility TEXT NOT NULL DEFAULT 'unknown'
+        CHECK (visibility IN ('public', 'private', 'internal', 'unknown')),
+      archived BOOLEAN NOT NULL DEFAULT false,
+      synced_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS org_groups (
-      id SERIAL PRIMARY KEY,
-      project_id INTEGER NOT NULL REFERENCES org_projects(id) ON DELETE CASCADE,
-      mentor_id INTEGER NOT NULL REFERENCES org_people(id) ON DELETE RESTRICT,
-      assistant_id INTEGER NOT NULL REFERENCES org_people(id) ON DELETE RESTRICT,
-      github_repo TEXT NOT NULL,
-      github_team TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    CREATE TABLE IF NOT EXISTS repo_members (
+      repo_id INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+      person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('mentor', 'assistant', 'lead', 'member')),
+      PRIMARY KEY (repo_id, person_id)
     )
   `;
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS org_group_members (
-      group_id INTEGER NOT NULL REFERENCES org_groups(id) ON DELETE CASCADE,
-      person_id INTEGER NOT NULL REFERENCES org_people(id) ON DELETE CASCADE,
-      PRIMARY KEY (group_id, person_id)
-    )
-  `;
-
-  await sql`CREATE INDEX IF NOT EXISTS org_groups_github_repo_idx ON org_groups (github_repo)`;
-  await sql`CREATE INDEX IF NOT EXISTS org_group_members_group_idx ON org_group_members (group_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS repo_members_person_idx ON repo_members (person_id)`;
 }
 
-// ── Organization types ─────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────
 
-export type OrgProject = {
+export type Person = {
   id: number;
-  name: string;
-  topic: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type OrgPerson = {
-  id: number;
-  name: string;
   githubId: string;
+  realName: string;
   createdAt: string;
   updatedAt: string;
 };
 
-export type OrgGroup = {
+export type Repo = {
   id: number;
-  projectId: number;
-  projectName: string;
-  projectTopic: string;
-  mentorId: number;
-  mentorName: string;
-  mentorGithubId: string;
-  assistantId: number;
-  assistantName: string;
-  assistantGithubId: string;
   githubRepo: string;
-  githubTeam: string;
-  memberIds: number[];
-  memberNames: string[];
+  description: string | null;
+  homepageUrl: string | null;
+  topics: string[];
+  language: string | null;
+  visibility: string;
+  archived: boolean;
+  syncedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
 
-// ── Projects CRUD ──────────────────────────────────────────────
+export type RepoMember = {
+  repoId: number;
+  personId: number;
+  role: "mentor" | "assistant" | "lead" | "member";
+};
 
-export async function listProjects(): Promise<OrgProject[]> {
+// People CRUD ──────────────────────────────────────────────────
+
+export async function listPeople(): Promise<Person[]> {
   const sql = getSql();
   if (!sql) return [];
   await ensureOrganizationSchema();
-
   const rows = await sql`
-    SELECT id, name, topic, created_at AS "createdAt", updated_at AS "updatedAt"
-    FROM org_projects ORDER BY id ASC
+    SELECT id, github_id AS "githubId", real_name AS "realName",
+           created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM people ORDER BY id ASC
   `;
-  return rows as OrgProject[];
+  return rows as Person[];
 }
 
-export async function createProject(name: string, topic: string): Promise<OrgProject> {
+export async function createPerson(githubId: string, realName: string): Promise<Person> {
   const sql = getSql();
   if (!sql) throw new Error("DATABASE_URL 尚未配置");
   await ensureOrganizationSchema();
-
   const [row] = await sql`
-    INSERT INTO org_projects (name, topic) VALUES (${name}, ${topic})
-    RETURNING id, name, topic, created_at AS "createdAt", updated_at AS "updatedAt"
+    INSERT INTO people (github_id, real_name) VALUES (${githubId}, ${realName})
+    RETURNING id, github_id AS "githubId", real_name AS "realName",
+              created_at AS "createdAt", updated_at AS "updatedAt"
   `;
-  return row as OrgProject;
+  return row as Person;
 }
 
-export async function updateProject(id: number, name: string, topic: string): Promise<OrgProject | null> {
+export async function updatePerson(id: number, githubId: string, realName: string): Promise<Person | null> {
   const sql = getSql();
   if (!sql) throw new Error("DATABASE_URL 尚未配置");
   await ensureOrganizationSchema();
-
   const [row] = await sql`
-    UPDATE org_projects SET name = ${name}, topic = ${topic}, updated_at = NOW()
+    UPDATE people SET github_id = ${githubId}, real_name = ${realName}, updated_at = NOW()
     WHERE id = ${id}
-    RETURNING id, name, topic, created_at AS "createdAt", updated_at AS "updatedAt"
+    RETURNING id, github_id AS "githubId", real_name AS "realName",
+              created_at AS "createdAt", updated_at AS "updatedAt"
   `;
-  return (row as OrgProject) ?? null;
-}
-
-export async function deleteProject(id: number): Promise<boolean> {
-  const sql = getSql();
-  if (!sql) throw new Error("DATABASE_URL 尚未配置");
-  await ensureOrganizationSchema();
-
-  const [deleted] = await sql`DELETE FROM org_projects WHERE id = ${id} RETURNING id`;
-  return deleted !== undefined;
-}
-
-// ── People CRUD ────────────────────────────────────────────────
-
-export async function listPeople(): Promise<OrgPerson[]> {
-  const sql = getSql();
-  if (!sql) return [];
-  await ensureOrganizationSchema();
-
-  const rows = await sql`
-    SELECT id, name, github_id AS "githubId", created_at AS "createdAt", updated_at AS "updatedAt"
-    FROM org_people ORDER BY id ASC
-  `;
-  return rows as OrgPerson[];
-}
-
-export async function createPerson(name: string, githubId: string): Promise<OrgPerson> {
-  const sql = getSql();
-  if (!sql) throw new Error("DATABASE_URL 尚未配置");
-  await ensureOrganizationSchema();
-
-  const [row] = await sql`
-    INSERT INTO org_people (name, github_id) VALUES (${name}, ${githubId})
-    RETURNING id, name, github_id AS "githubId", created_at AS "createdAt", updated_at AS "updatedAt"
-  `;
-  return row as OrgPerson;
-}
-
-export async function updatePerson(id: number, name: string, githubId: string): Promise<OrgPerson | null> {
-  const sql = getSql();
-  if (!sql) throw new Error("DATABASE_URL 尚未配置");
-  await ensureOrganizationSchema();
-
-  const [row] = await sql`
-    UPDATE org_people SET name = ${name}, github_id = ${githubId}, updated_at = NOW()
-    WHERE id = ${id}
-    RETURNING id, name, github_id AS "githubId", created_at AS "createdAt", updated_at AS "updatedAt"
-  `;
-  return (row as OrgPerson) ?? null;
+  return (row as Person) ?? null;
 }
 
 export async function deletePerson(id: number): Promise<boolean> {
   const sql = getSql();
   if (!sql) throw new Error("DATABASE_URL 尚未配置");
   await ensureOrganizationSchema();
-
-  const [deleted] = await sql`DELETE FROM org_people WHERE id = ${id} RETURNING id`;
+  const [deleted] = await sql`DELETE FROM people WHERE id = ${id} RETURNING id`;
   return deleted !== undefined;
 }
 
-// ── Groups CRUD ────────────────────────────────────────────────
+export async function getPersonByGithubId(githubId: string): Promise<Person | null> {
+  const sql = getSql();
+  if (!sql) return null;
+  await ensureOrganizationSchema();
+  const [row] = await sql`
+    SELECT id, github_id AS "githubId", real_name AS "realName",
+           created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM people WHERE github_id = ${githubId}
+  `;
+  return (row as Person) ?? null;
+}
 
-export async function listGroups(): Promise<OrgGroup[]> {
+// Repos CRUD ───────────────────────────────────────────────────
+
+export async function listRepos(): Promise<Repo[]> {
   const sql = getSql();
   if (!sql) return [];
   await ensureOrganizationSchema();
-
   const rows = await sql`
-    SELECT
-      g.id,
-      g.project_id AS "projectId",
-      p.name AS "projectName",
-      p.topic AS "projectTopic",
-      g.mentor_id AS "mentorId",
-      m.name AS "mentorName",
-      m.github_id AS "mentorGithubId",
-      g.assistant_id AS "assistantId",
-      a.name AS "assistantName",
-      a.github_id AS "assistantGithubId",
-      g.github_repo AS "githubRepo",
-      g.github_team AS "githubTeam",
-      g.created_at AS "createdAt",
-      g.updated_at AS "updatedAt"
-    FROM org_groups g
-    JOIN org_projects p ON g.project_id = p.id
-    JOIN org_people m ON g.mentor_id = m.id
-    JOIN org_people a ON g.assistant_id = a.id
-    ORDER BY g.id ASC
+    SELECT id, github_repo AS "githubRepo", description, homepage_url AS "homepageUrl",
+           topics, language, visibility, archived, synced_at AS "syncedAt",
+           created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM repos ORDER BY id ASC
   `;
-
-  // Hydrate member lists
-  const groups = await Promise.all(
-    rows.map(async (row) => {
-      const members = await sql`
-        SELECT p.id, p.name
-        FROM org_group_members gm
-        JOIN org_people p ON gm.person_id = p.id
-        WHERE gm.group_id = ${row.id}
-        ORDER BY p.id ASC
-      `;
-      return {
-        ...row,
-        memberIds: members.map((m) => m.id as number),
-        memberNames: members.map((m) => m.name as string),
-      } as OrgGroup;
-    }),
-  );
-
-  return groups;
+  return (rows as Repo[]).map((r) => ({ ...r, topics: r.topics ?? [] }));
 }
 
-export async function createGroup(data: {
-  projectId: number;
-  mentorId: number;
-  assistantId: number;
-  githubRepo: string;
-  githubTeam: string;
-  memberIds: number[];
-}): Promise<OrgGroup> {
+export async function upsertRepo(githubRepo: string): Promise<Repo> {
   const sql = getSql();
   if (!sql) throw new Error("DATABASE_URL 尚未配置");
   await ensureOrganizationSchema();
-
   const [row] = await sql`
-    INSERT INTO org_groups (project_id, mentor_id, assistant_id, github_repo, github_team)
-    VALUES (${data.projectId}, ${data.mentorId}, ${data.assistantId}, ${data.githubRepo}, ${data.githubTeam})
-    RETURNING id, project_id AS "projectId", mentor_id AS "mentorId", assistant_id AS "assistantId",
-              github_repo AS "githubRepo", github_team AS "githubTeam",
+    INSERT INTO repos (github_repo) VALUES (${githubRepo})
+    ON CONFLICT (github_repo) DO UPDATE SET github_repo = repos.github_repo
+    RETURNING id, github_repo AS "githubRepo", description, homepage_url AS "homepageUrl",
+              topics, language, visibility, archived, synced_at AS "syncedAt",
               created_at AS "createdAt", updated_at AS "updatedAt"
   `;
-
-  if (data.memberIds.length > 0) {
-    await Promise.all(
-      data.memberIds.map((personId) =>
-        sql`INSERT INTO org_group_members (group_id, person_id) VALUES (${row.id}, ${personId}) ON CONFLICT DO NOTHING`,
-      ),
-    );
-  }
-
-  // Re-read with joins
-  const groups = await listGroups();
-  return groups.find((g) => g.id === row.id)!;
+  return { ...row, topics: row.topics ?? [] } as Repo;
 }
 
-export async function updateGroup(
-  id: number,
-  data: {
-    projectId: number;
-    mentorId: number;
-    assistantId: number;
-    githubRepo: string;
-    githubTeam: string;
-    memberIds: number[];
-  },
-): Promise<OrgGroup | null> {
+export async function syncRepoMetadata(
+  githubRepo: string,
+  metadata: { description: string | null; homepageUrl: string | null; topics: string[]; language: string | null; visibility: string; archived: boolean },
+): Promise<void> {
   const sql = getSql();
   if (!sql) throw new Error("DATABASE_URL 尚未配置");
   await ensureOrganizationSchema();
-
-  const [row] = await sql`
-    UPDATE org_groups
-    SET project_id = ${data.projectId}, mentor_id = ${data.mentorId},
-        assistant_id = ${data.assistantId}, github_repo = ${data.githubRepo},
-        github_team = ${data.githubTeam}, updated_at = NOW()
-    WHERE id = ${id}
-    RETURNING id
+  await sql`
+    UPDATE repos
+    SET description = ${metadata.description},
+        homepage_url = ${metadata.homepageUrl},
+        topics = ${metadata.topics},
+        language = ${metadata.language},
+        visibility = ${metadata.visibility},
+        archived = ${metadata.archived},
+        synced_at = NOW()
+    WHERE github_repo = ${githubRepo}
   `;
-  if (!row) return null;
-
-  // Replace members
-  await sql`DELETE FROM org_group_members WHERE group_id = ${id}`;
-  if (data.memberIds.length > 0) {
-    await Promise.all(
-      data.memberIds.map((personId) =>
-        sql`INSERT INTO org_group_members (group_id, person_id) VALUES (${id}, ${personId})`,
-      ),
-    );
-  }
-
-  const groups = await listGroups();
-  return groups.find((g) => g.id === id) ?? null;
 }
 
-export async function deleteGroup(id: number): Promise<boolean> {
+export async function deleteRepo(id: number): Promise<boolean> {
   const sql = getSql();
   if (!sql) throw new Error("DATABASE_URL 尚未配置");
   await ensureOrganizationSchema();
-
-  await sql`DELETE FROM org_group_members WHERE group_id = ${id}`;
-  const [deleted] = await sql`DELETE FROM org_groups WHERE id = ${id} RETURNING id`;
+  const [deleted] = await sql`DELETE FROM repos WHERE id = ${id} RETURNING id`;
   return deleted !== undefined;
 }
 
-// ── Repository detail (for slide-out panel) ────────────────────
+export async function isOrgDataAvailable(): Promise<boolean> {
+  const sql = getSql();
+  if (!sql) return false;
+  await ensureOrganizationSchema();
+  const [row] = await sql`SELECT COUNT(*)::int AS count FROM repos`;
+  return (row?.count ?? 0) > 0;
+}
 
-export async function getGroupDetailByRepo(repoFullName: string): Promise<OrgGroup | null> {
+// Repo members ──────────────────────────────────────────────────
+
+export async function setRepoMember(repoId: number, personId: number, role: string): Promise<void> {
+  const sql = getSql();
+  if (!sql) throw new Error("DATABASE_URL 尚未配置");
+  await ensureOrganizationSchema();
+  await sql`
+    INSERT INTO repo_members (repo_id, person_id, role) VALUES (${repoId}, ${personId}, ${role})
+    ON CONFLICT (repo_id, person_id) DO UPDATE SET role = EXCLUDED.role
+  `;
+}
+
+export async function removeRepoMember(repoId: number, personId: number): Promise<void> {
+  const sql = getSql();
+  if (!sql) throw new Error("DATABASE_URL 尚未配置");
+  await ensureOrganizationSchema();
+  await sql`DELETE FROM repo_members WHERE repo_id = ${repoId} AND person_id = ${personId}`;
+}
+
+// Repo detail (for drawer) ─────────────────────────────────────
+
+export type RepoDetail = Repo & {
+  members: { personId: number; githubId: string; realName: string; role: string }[];
+};
+
+export async function getRepoDetail(repoFullName: string): Promise<RepoDetail | null> {
   const sql = getSql();
   if (!sql) return null;
   await ensureOrganizationSchema();
 
-  const groups = await listGroups();
-  return groups.find((g) => {
-    try {
-      const url = new URL(g.githubRepo);
-      const parts = url.pathname.split("/").filter(Boolean);
-      return `${parts[0]}/${parts[1]}`.toLowerCase() === repoFullName.toLowerCase();
-    } catch {
-      return false;
-    }
-  }) ?? null;
+  const [repo] = await sql`
+    SELECT id, github_repo AS "githubRepo", description, homepage_url AS "homepageUrl",
+           topics, language, visibility, archived, synced_at AS "syncedAt",
+           created_at AS "createdAt", updated_at AS "updatedAt"
+    FROM repos WHERE github_repo = ${repoFullName}
+  `;
+  if (!repo) return null;
+
+  const members = await sql`
+    SELECT p.id AS "personId", p.github_id AS "githubId", p.real_name AS "realName", rm.role
+    FROM repo_members rm
+    JOIN people p ON rm.person_id = p.id
+    WHERE rm.repo_id = ${repo.id}
+    ORDER BY
+      CASE rm.role
+        WHEN 'mentor' THEN 1
+        WHEN 'assistant' THEN 2
+        WHEN 'lead' THEN 3
+        WHEN 'member' THEN 4
+      END,
+      p.id ASC
+  `;
+
+  return { ...repo, topics: repo.topics ?? [], members: members as RepoDetail["members"] } as RepoDetail;
 }
 
-// ── Bulk import (YAML → DB, one-time) ──────────────────────────
+// Bulk import from YAML ────────────────────────────────────────
 
 export async function importOrgFromYaml(groups: Array<{
-  projectName: string;
-  topic: string;
+  githubRepo: string;
   mentor: { name: string; id: string };
   assistant: { name: string; id: string };
-  githubRepo: string;
-  githubTeam: string;
   members: Array<{ name: string; id: string }>;
 }>) {
   const sql = getSql();
   if (!sql) throw new Error("DATABASE_URL 尚未配置");
   await ensureOrganizationSchema();
 
-  // Deduplicate helpers
-  const projectCache = new Map<string, number>();
-  const personCache = new Map<string, number>(); // key = github_id|name
+  let reposCount = 0;
+  let peopleCount = 0;
 
   for (const g of groups) {
-    // Upsert project
-    const projectKey = `${g.projectName}|${g.topic}`;
-    if (!projectCache.has(projectKey)) {
-      const [p] = await sql`
-        INSERT INTO org_projects (name, topic) VALUES (${g.projectName}, ${g.topic})
-        ON CONFLICT DO NOTHING RETURNING id
-      `;
-      if (p) {
-        projectCache.set(projectKey, p.id as number);
-      } else {
-        const [existing] = await sql`SELECT id FROM org_projects WHERE name = ${g.projectName} AND topic = ${g.topic}`;
-        projectCache.set(projectKey, existing.id as number);
-      }
-    }
+    // Parse repo
+    if (!g.githubRepo) continue;
+    const url = new URL(g.githubRepo);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const fullRepo = `${parts[0]}/${parts[1]}`;
 
-    // Upsert each person
+    // Upsert repo
+    await upsertRepo(fullRepo);
+    reposCount++;
+
+    // Upsert people
     const ensurePerson = async (name: string, githubId: string): Promise<number> => {
-      const personKey = githubId || name;
-      if (personCache.has(personKey)) return personCache.get(personKey)!;
-
-      const [existing] = await sql`SELECT id FROM org_people WHERE github_id = ${githubId} AND github_id != ''`;
+      if (!githubId) return -1;
+      const existing = await getPersonByGithubId(githubId);
       if (existing) {
-        // Update name if changed
-        await sql`UPDATE org_people SET name = ${name}, updated_at = NOW() WHERE id = ${existing.id}`;
-        personCache.set(personKey, existing.id as number);
-        return existing.id as number;
+        await sql`UPDATE people SET real_name = ${name}, updated_at = NOW() WHERE id = ${existing.id}`;
+        return existing.id;
       }
-
-      const [p] = await sql`
-        INSERT INTO org_people (name, github_id) VALUES (${name}, ${githubId})
+      const [row] = await sql`
+        INSERT INTO people (github_id, real_name) VALUES (${githubId}, ${name})
         RETURNING id
       `;
-      personCache.set(personKey, p.id as number);
-      return p.id as number;
+      peopleCount++;
+      return row.id as number;
     };
 
     const mentorId = await ensurePerson(g.mentor.name, g.mentor.id);
     const assistantId = await ensurePerson(g.assistant.name, g.assistant.id);
-    const memberIds = await Promise.all(g.members.map((m) => ensurePerson(m.name, m.id)));
 
-    const projectId = projectCache.get(projectKey)!;
+    // Get repo id
+    const [r] = await sql`SELECT id FROM repos WHERE github_repo = ${fullRepo}`;
+    if (!r) continue;
+    const repoId = r.id as number;
 
-    // Insert group
-    const [group] = await sql`
-      INSERT INTO org_groups (project_id, mentor_id, assistant_id, github_repo, github_team)
-      VALUES (${projectId}, ${mentorId}, ${assistantId}, ${g.githubRepo}, ${g.githubTeam})
-      RETURNING id
-    `;
+    // Assign roles
+    if (mentorId > 0) await setRepoMember(repoId, mentorId, "mentor");
+    if (assistantId > 0) await setRepoMember(repoId, assistantId, "assistant");
 
-    // Insert members
-    if (memberIds.length > 0) {
-      await Promise.all(
-        memberIds.map((personId) =>
-          sql`INSERT INTO org_group_members (group_id, person_id) VALUES (${group.id}, ${personId}) ON CONFLICT DO NOTHING`,
-        ),
-      );
+    for (const m of g.members) {
+      const memberId = await ensurePerson(m.name, m.id);
+      if (memberId > 0) await setRepoMember(repoId, memberId, "member");
     }
   }
 
-  // Return summary
-  const [projectCount, personCount, groupCount] = await Promise.all([
-    sql`SELECT COUNT(*)::int AS count FROM org_projects`,
-    sql`SELECT COUNT(*)::int AS count FROM org_people`,
-    sql`SELECT COUNT(*)::int AS count FROM org_groups`,
-  ]);
+  const [ppCount] = await sql`SELECT COUNT(*)::int AS count FROM people`;
+  const [rrCount] = await sql`SELECT COUNT(*)::int AS count FROM repos`;
 
-  return {
-    projects: projectCount[0]?.count ?? 0,
-    people: personCount[0]?.count ?? 0,
-    groups: groupCount[0]?.count ?? 0,
-  };
+  return { repos: rrCount?.count ?? reposCount, people: ppCount?.count ?? peopleCount };
 }
 
-// ── Check if org data exists ───────────────────────────────────
+// All repos for star tracking ──────────────────────────────────
 
-export async function isOrgDataAvailable(): Promise<boolean> {
+export async function getTrackedRepos(): Promise<{ githubRepo: string; repoId: number }[]> {
   const sql = getSql();
-  if (!sql) return false;
+  if (!sql) return [];
   await ensureOrganizationSchema();
-
-  const [row] = await sql`SELECT COUNT(*)::int AS count FROM org_groups`;
-  return (row?.count ?? 0) > 0;
+  const rows = await sql`
+    SELECT github_repo AS "githubRepo", id AS "repoId" FROM repos
+  `;
+  return rows as { githubRepo: string; repoId: number }[];
 }
 
 export async function getLatestSnapshotRun(): Promise<SnapshotRun | null> {

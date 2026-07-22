@@ -5,7 +5,7 @@ import { cache } from "react";
 import { parse } from "yaml";
 import { z } from "zod";
 
-import { isOrgDataAvailable, listGroups } from "@/lib/database";
+import { isOrgDataAvailable, listRepos, type Repo } from "@/lib/database";
 
 const personSchema = z.object({
   name: z.string().trim(),
@@ -53,37 +53,37 @@ export type ConfiguredRepository = {
 
 const configPath = path.join(process.cwd(), "app", "data", "info.yaml");
 
-/** Read from YAML (only used as fallback when DB is empty) */
+/** YAML config (for import only, or fallback) */
 export const getWatchConfig = cache(async (): Promise<WatchConfig> => {
   const source = await readFile(configPath, "utf8");
   return watchConfigSchema.parse(parse(source));
 });
 
-/** Primary data source: reads repos from org_groups table. Falls back to YAML. */
+function parseRepoInfo(fullRepo: string) {
+  const [owner = "", name = ""] = fullRepo.split("/");
+  return {
+    owner,
+    name: name.replace(/\.git$/, ""),
+    fullName: fullRepo,
+    url: `https://github.com/${fullRepo}`,
+  };
+}
+
+/** Primary data source: reads repos from DB. Falls back to YAML. */
 export const getConfiguredRepositories = cache(async (): Promise<ConfiguredRepository[]> => {
-  // Try database first
   const hasDbData = await isOrgDataAvailable();
+
   if (hasDbData) {
-    const groups = await listGroups();
-    return groups.flatMap((group) => {
-      if (!group.githubRepo) return [];
-      try {
-        const url = new URL(group.githubRepo);
-        const [owner = "", rawName = ""] = url.pathname.split("/").filter(Boolean);
-        const name = rawName.replace(/\.git$/, "");
-        return [
-          {
-            owner,
-            name,
-            fullName: `${owner}/${name}`,
-            url: group.githubRepo,
-            projectName: group.projectName,
-            topic: group.projectTopic,
-          },
-        ];
-      } catch {
-        return [];
-      }
+    const repos = await listRepos();
+    return repos.map((r: Repo) => {
+      const info = parseRepoInfo(r.githubRepo);
+      // Use first topic as label, description as topic for star tracking compatibility
+      const topic = r.topics?.join(", ") ?? r.description ?? "";
+      return {
+        ...info,
+        projectName: r.githubRepo,
+        topic,
+      };
     });
   }
 

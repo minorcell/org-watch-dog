@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getGitHubEnv } from "@/lib/env";
 import type { ConfiguredRepository } from "@/lib/watch-config";
 
+// ── Repo stats (Star tracking) ────────────────────────────────
+
 const githubRepositorySchema = z.object({
   full_name: z.string(),
   html_url: z.url(),
@@ -37,6 +39,17 @@ export type RepositoryFetchError = {
   status: number;
 };
 
+function githubHeaders(): HeadersInit {
+  const { GITHUB_TOKEN } = getGitHubEnv();
+  const headers: HeadersInit = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "xe-watch-dog",
+  };
+  if (GITHUB_TOKEN) headers.Authorization = `Bearer ${GITHUB_TOKEN}`;
+  return headers;
+}
+
 function getErrorMessage(status: number, fallback: string) {
   if (status === 401) return "GitHub Token 无效";
   if (status === 403) return "GitHub API 请求受限";
@@ -45,21 +58,9 @@ function getErrorMessage(status: number, fallback: string) {
 }
 
 export async function fetchRepositoryStarStats(repository: ConfiguredRepository): Promise<RepositoryStarStats> {
-  const { GITHUB_TOKEN } = getGitHubEnv();
-  const headers: HeadersInit = {
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-    "User-Agent": "xe-watch-dog",
-  };
-
-  if (GITHUB_TOKEN) headers.Authorization = `Bearer ${GITHUB_TOKEN}`;
-
   const response = await fetch(
     `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}`,
-    {
-      headers,
-      next: { revalidate: 300, tags: ["github-repository-stats"] },
-    },
+    { headers: githubHeaders(), next: { revalidate: 300, tags: ["github-repository-stats"] } },
   );
 
   if (!response.ok) {
@@ -99,7 +100,6 @@ export async function fetchAllRepositoryStarStats(repositories: ConfiguredReposi
     results.forEach((result, resultIndex) => {
       const repository = batch[resultIndex];
       if (!repository) return;
-
       if (result.status === "fulfilled") {
         stats.push(result.value);
       } else {
@@ -115,4 +115,44 @@ export async function fetchAllRepositoryStarStats(repositories: ConfiguredReposi
   }
 
   return { stats, errors };
+}
+
+// ── Repo metadata for sync ────────────────────────────────────
+
+export type RepoMetadata = {
+  description: string | null;
+  homepageUrl: string | null;
+  topics: string[];
+  language: string | null;
+  visibility: string;
+  archived: boolean;
+};
+
+export async function fetchRepoMetadata(owner: string, repo: string): Promise<RepoMetadata> {
+  const response = await fetch(
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+    { headers: githubHeaders() },
+  );
+
+  if (!response.ok) {
+    throw new Error(`GitHub API error ${response.status} for ${owner}/${repo}`);
+  }
+
+  const data = await response.json() as {
+    description: string | null;
+    homepage: string | null;
+    topics: string[];
+    language: string | null;
+    visibility: string;
+    archived: boolean;
+  };
+
+  return {
+    description: data.description ?? null,
+    homepageUrl: data.homepage ?? null,
+    topics: data.topics ?? [],
+    language: data.language ?? null,
+    visibility: data.visibility ?? "unknown",
+    archived: data.archived ?? false,
+  };
 }

@@ -9,15 +9,17 @@ export async function POST() {
   try {
     const config = await getWatchConfig();
     const result = await importOrgFromYaml(config.groups.map((g) => ({
-      projectName: g.project_name,
-      topic: g.topic,
+      githubRepo: (() => {
+        if (!g.github_repo) return "";
+        const url = new URL(g.github_repo);
+        const parts = url.pathname.split("/").filter(Boolean);
+        return `${parts[0]}/${parts[1]}`;
+      })(),
       mentor: g.mentor,
       assistant: g.assistant,
-      githubRepo: g.github_repo,
-      githubTeam: g.github_team,
       members: g.members,
     })));
-    return NextResponse.json(result);
+    return NextResponse.json({ message: `导入 ${result.repos} 个仓库，${result.people} 人`, ...result });
   } catch (error) {
     return NextResponse.json({ message: "导入失败", error: String(error) }, { status: 500 });
   }

@@ -10,7 +10,6 @@ import { parse } from "yaml";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Lightweight Neon client loader
 async function getSql() {
   const envPath = path.join(__dirname, "..", ".env.local");
   let dbUrl = process.env.DATABASE_URL;
@@ -24,7 +23,6 @@ async function getSql() {
     }
   }
   if (!dbUrl) throw new Error("DATABASE_URL not found in env or .env.local");
-
   const { neon } = await import("@neondatabase/serverless");
   return neon(dbUrl);
 }
@@ -42,123 +40,88 @@ async function main() {
   }
 
   const sql = await getSql();
-  console.log(`🔌 Connected to Neon. Importing ${config.groups.length} groups...`);
+  console.log(`🔌 Importing ${config.groups.length} groups...`);
 
-  // Create schema
+  // Create tables
   await sql`
-    CREATE TABLE IF NOT EXISTS org_projects (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      topic TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CREATE TABLE IF NOT EXISTS people (
+      id SERIAL PRIMARY KEY, github_id TEXT NOT NULL UNIQUE,
+      real_name TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
   await sql`
-    CREATE TABLE IF NOT EXISTS org_people (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      github_id TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    CREATE TABLE IF NOT EXISTS repos (
+      id SERIAL PRIMARY KEY, github_repo TEXT NOT NULL UNIQUE,
+      description TEXT, homepage_url TEXT, topics TEXT[] DEFAULT '{}',
+      language TEXT, visibility TEXT NOT NULL DEFAULT 'unknown',
+      archived BOOLEAN NOT NULL DEFAULT false, synced_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
   await sql`
-    CREATE TABLE IF NOT EXISTS org_groups (
-      id SERIAL PRIMARY KEY,
-      project_id INTEGER NOT NULL REFERENCES org_projects(id) ON DELETE CASCADE,
-      mentor_id INTEGER NOT NULL REFERENCES org_people(id) ON DELETE RESTRICT,
-      assistant_id INTEGER NOT NULL REFERENCES org_people(id) ON DELETE RESTRICT,
-      github_repo TEXT NOT NULL,
-      github_team TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-  await sql`
-    CREATE TABLE IF NOT EXISTS org_group_members (
-      group_id INTEGER NOT NULL REFERENCES org_groups(id) ON DELETE CASCADE,
-      person_id INTEGER NOT NULL REFERENCES org_people(id) ON DELETE CASCADE,
-      PRIMARY KEY (group_id, person_id)
+    CREATE TABLE IF NOT EXISTS repo_members (
+      repo_id INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE,
+      person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('mentor', 'assistant', 'lead', 'member')),
+      PRIMARY KEY (repo_id, person_id)
     )
   `;
 
-  const projectCache = new Map();
-  const personCache = new Map();
+  let reposCount = 0;
+  let peopleCount = 0;
 
   for (const g of config.groups) {
-    const projectKey = `${g.project_name}|${g.topic}`;
+    if (!g.github_repo) continue;
+    const url = new URL(g.github_repo);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const fullRepo = `${parts[0]}/${parts[1]}`;
 
-    // Upsert project
-    if (!projectCache.has(projectKey)) {
-      let [p] = await sql`SELECT id FROM org_projects WHERE name = ${g.project_name} AND topic = ${g.topic}`;
-      if (!p) {
-        [p] = await sql`INSERT INTO org_projects (name, topic) VALUES (${g.project_name}, ${g.topic}) RETURNING id`;
-      }
-      projectCache.set(projectKey, p.id);
-    }
+    // Upsert repo
+    await sql`INSERT INTO repos (github_repo) VALUES (${fullRepo}) ON CONFLICT (github_repo) DO NOTHING`;
+    reposCount++;
 
-    // Helper: upsert person by github_id
+    // Helper: upsert person
     const ensurePerson = async (name, githubId) => {
-      const key = githubId || name;
-      if (personCache.has(key)) return personCache.get(key);
-
-      let [p] = githubId
-        ? await sql`SELECT id FROM org_people WHERE github_id = ${githubId}`
-        : [null];
-      if (p) {
-        await sql`UPDATE org_people SET name = ${name}, updated_at = NOW() WHERE id = ${p.id}`;
-        personCache.set(key, p.id);
-        return p.id;
+      if (!githubId) return -1;
+      const [existing] = await sql`SELECT id FROM people WHERE github_id = ${githubId}`;
+      if (existing) {
+        await sql`UPDATE people SET real_name = ${name}, updated_at = NOW() WHERE id = ${existing.id}`;
+        return existing.id;
       }
-
-      [p] = await sql`INSERT INTO org_people (name, github_id) VALUES (${name}, ${githubId}) RETURNING id`;
-      personCache.set(key, p.id);
-      return p.id;
+      const [row] = await sql`INSERT INTO people (github_id, real_name) VALUES (${githubId}, ${name}) RETURNING id`;
+      peopleCount++;
+      return row.id;
     };
 
     const mentorId = await ensurePerson(g.mentor.name, g.mentor.id);
     const assistantId = await ensurePerson(g.assistant.name, g.assistant.id);
-    const memberIds = await Promise.all(
-      (g.members ?? []).map((m) => ensurePerson(m.name, m.id)),
-    );
 
-    const projectId = projectCache.get(projectKey);
+    const [r] = await sql`SELECT id FROM repos WHERE github_repo = ${fullRepo}`;
+    if (!r) continue;
+    const repoId = r.id;
 
-    // Check for duplicate group (same repo)
-    const [existing] = await sql`SELECT id FROM org_groups WHERE github_repo = ${g.github_repo}`;
-    let groupId;
-    if (existing) {
-      await sql`
-        UPDATE org_groups SET project_id = ${projectId}, mentor_id = ${mentorId},
-          assistant_id = ${assistantId}, github_team = ${g.github_team}, updated_at = NOW()
-        WHERE id = ${existing.id}
-      `;
-      groupId = existing.id;
-      await sql`DELETE FROM org_group_members WHERE group_id = ${groupId}`;
-    } else {
-      const [grp] = await sql`
-        INSERT INTO org_groups (project_id, mentor_id, assistant_id, github_repo, github_team)
-        VALUES (${projectId}, ${mentorId}, ${assistantId}, ${g.github_repo}, ${g.github_team})
-        RETURNING id
-      `;
-      groupId = grp.id;
+    // Assign roles
+    if (mentorId > 0) {
+      await sql`INSERT INTO repo_members (repo_id, person_id, role) VALUES (${repoId}, ${mentorId}, 'mentor') ON CONFLICT (repo_id, person_id) DO UPDATE SET role = 'mentor'`;
     }
-
-    // Insert members
-    for (const mid of memberIds) {
-      await sql`INSERT INTO org_group_members (group_id, person_id) VALUES (${groupId}, ${mid}) ON CONFLICT DO NOTHING`;
+    if (assistantId > 0) {
+      await sql`INSERT INTO repo_members (repo_id, person_id, role) VALUES (${repoId}, ${assistantId}, 'assistant') ON CONFLICT (repo_id, person_id) DO UPDATE SET role = 'assistant'`;
+    }
+    for (const m of g.members ?? []) {
+      const memberId = await ensurePerson(m.name, m.id);
+      if (memberId > 0) {
+        await sql`INSERT INTO repo_members (repo_id, person_id, role) VALUES (${repoId}, ${memberId}, 'member') ON CONFLICT (repo_id, person_id) DO UPDATE SET role = 'member'`;
+      }
     }
 
     process.stdout.write(".");
   }
 
-  // Counts
-  const [pc] = await sql`SELECT COUNT(*)::int AS count FROM org_projects`;
-  const [pp] = await sql`SELECT COUNT(*)::int AS count FROM org_people`;
-  const [gc] = await sql`SELECT COUNT(*)::int AS count FROM org_groups`;
+  const [pc] = await sql`SELECT COUNT(*)::int AS count FROM people`;
+  const [rc] = await sql`SELECT COUNT(*)::int AS count FROM repos`;
 
-  console.log(`\n✅ Import done: ${pc.count} projects, ${pp.count} people, ${gc.count} groups`);
+  console.log(`\n✅ Import done: ${rc.count} repos, ${pc.count} people`);
 }
 
 main().catch((err) => {
