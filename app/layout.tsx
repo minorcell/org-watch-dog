@@ -12,6 +12,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: { default: "Watchdog", template: "%s | Watchdog" },
   description: "1024XEngineer GitHub 仓库观察看板",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

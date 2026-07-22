@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { Activity, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+
+import { Logo } from "@/components/layout/logo";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/auth/login-form";
@@ -19,9 +21,7 @@ export default async function LoginPage() {
         {/* Brand */}
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="grid size-7 place-items-center rounded-md bg-foreground text-background">
-              <Activity className="size-3.5" />
-            </span>
+            <Logo className="size-8" />
             <div>
               <p className="text-sm font-semibold leading-tight tracking-tight">Watchdog</p>
               <p className="text-[11px] text-muted-foreground">1024XEngineer</p>

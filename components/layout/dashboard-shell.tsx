@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, ChevronLeft, ChevronRight, Settings, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings, Star } from "lucide-react";
+
+import { Logo } from "@/components/layout/logo";
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -50,11 +52,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         {/* Brand */}
         {collapsed ? (
           <div className="flex h-12 shrink-0 items-center justify-center">
-            <span className="grid size-6 place-items-center rounded-md bg-foreground text-background"><Activity className="size-3.5" /></span>
+            <Logo className="size-6" />
           </div>
         ) : (
           <div className="flex h-12 shrink-0 items-center gap-2.5 px-4">
-            <span className="grid size-6 place-items-center rounded-md bg-foreground text-background"><Activity className="size-3.5" /></span>
+            <Logo className="size-6" />
             <span className="text-sm font-semibold tracking-tight">Watchdog</span>
           </div>
         )}

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Left ear -->
+  <path d="M6 6 L10 2 L12 8 L8 10 Z" fill="#1a1a1a" />
+  <!-- Right ear -->
+  <path d="M26 6 L22 2 L20 8 L24 10 Z" fill="#1a1a1a" />
+  <!-- Face -->
+  <ellipse cx="16" cy="17" rx="11" ry="10" fill="#1a1a1a" />
+  <!-- Snout -->
+  <ellipse cx="16" cy="21" rx="5.5" ry="4" fill="#333" />
+  <!-- Nose -->
+  <ellipse cx="16" cy="19.5" rx="2.5" ry="1.8" fill="#0a0a0a" />
+  <!-- Left eye -->
+  <circle cx="11" cy="15" r="1.5" fill="#fff" />
+  <!-- Right eye -->
+  <circle cx="21" cy="15" r="1.5" fill="#fff" />
+  <!-- Glasses bridge -->
+  <line x1="12.5" y1="15" x2="19.5" y2="15" stroke="#fff" stroke-width="0.6" />
+  <!-- Left lens frame -->
+  <rect x="8" y="12.5" width="6" height="5" rx="2" stroke="#fff" stroke-width="0.6" fill="none" />
+  <!-- Right lens frame -->
+  <rect x="18" y="12.5" width="6" height="5" rx="2" stroke="#fff" stroke-width="0.6" fill="none" />
+  <!-- Left temple -->
+  <line x1="8" y1="13.5" x2="3" y2="11" stroke="#fff" stroke-width="0.5" />
+  <!-- Right temple -->
+  <line x1="26" y1="13.5" x2="29" y2="11" stroke="#fff" stroke-width="0.5" />
+  <!-- Tongue -->
+  <ellipse cx="16" cy="24" rx="2" ry="1.8" fill="#ff6b6b" />
+</svg>
