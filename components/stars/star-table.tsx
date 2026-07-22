@@ -10,11 +10,9 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ExternalLink, Search } from "lucide-react";
 
 import { ExportButton } from "@/components/stars/export-button";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import type { StarLeaderboardRow } from "@/lib/stars";
 
 function formatUpdatedAt(value: string | null) {
@@ -24,14 +22,18 @@ function formatUpdatedAt(value: string | null) {
 
 function GrowthValue({ value }: { value: number | null }) {
   if (value === null) return <span className="text-muted-foreground">-</span>;
-  if (value > 0) return <span className="font-medium text-emerald-700">+{value.toLocaleString("zh-CN")}</span>;
-  return <span className="text-muted-foreground">{value.toLocaleString("zh-CN")}</span>;
+  if (value > 0) return <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-500">+{value.toLocaleString("zh-CN")}</span>;
+  return <span className="tabular-nums text-muted-foreground">{value.toLocaleString("zh-CN")}</span>;
 }
 
 function VisibilityBadge({ visibility }: { visibility: StarLeaderboardRow["visibility"] }) {
-  if (visibility === "private") return <span className="inline-flex rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700">私有</span>;
-  if (visibility === "public") return <span className="inline-flex rounded-md bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700">公开</span>;
-  return <span className="text-xs text-muted-foreground">未采集</span>;
+  if (visibility === "private") {
+    return <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] text-muted-foreground">私有</span>;
+  }
+  if (visibility === "public") {
+    return <span className="inline-flex rounded px-1.5 py-0.5 text-[11px] text-muted-foreground">公开</span>;
+  }
+  return <span className="text-[11px] text-muted-foreground/60">未采集</span>;
 }
 
 export function StarTable({ data, range }: { data: StarLeaderboardRow[]; range: string }) {
@@ -51,75 +53,82 @@ export function StarTable({ data, range }: { data: StarLeaderboardRow[]; range: 
   const columns = useMemo<ColumnDef<StarLeaderboardRow>[]>(() => [
     {
       id: "rank",
-      header: "排名",
-      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{String(row.index + 1).padStart(2, "0")}</span>,
+      header: "#",
+      size: 48,
+      cell: ({ row }) => <span className="font-mono text-[11px] text-muted-foreground">{String(row.index + 1).padStart(2, "0")}</span>,
       enableSorting: false,
     },
     {
       accessorKey: "fullName",
       header: "仓库",
       cell: ({ row }) => (
-        <div className="min-w-56">
-          <Link href={row.original.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 font-medium hover:text-primary">
+        <div className="min-w-48">
+          <Link href={row.original.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-xs hover:text-primary">
             {row.original.fullName}
-            <ExternalLink className="size-3.5 text-muted-foreground" />
+            <ExternalLink className="size-3 text-muted-foreground" />
           </Link>
-          <p className="mt-1 max-w-80 truncate text-xs text-muted-foreground">{row.original.topic}</p>
+          <p className="mt-0.5 max-w-72 truncate text-[11px] text-muted-foreground">{row.original.topic}</p>
         </div>
       ),
     },
     {
       accessorKey: "visibility",
       header: "可见性",
+      size: 72,
       cell: ({ getValue }) => <VisibilityBadge visibility={getValue<StarLeaderboardRow["visibility"]>()} />,
     },
     {
       accessorKey: "projectName",
       header: "项目",
-      cell: ({ getValue }) => <span className="text-sm">{String(getValue())}</span>,
+      size: 96,
+      cell: ({ getValue }) => <span className="text-xs">{String(getValue())}</span>,
     },
     {
       accessorKey: "stars",
-      header: "当前 Star",
+      header: "Star",
+      size: 80,
       sortUndefined: "last",
       cell: ({ getValue }) => {
         const value = getValue<number | null>();
-        return value === null ? <span className="text-muted-foreground">-</span> : <span className="font-semibold tabular-nums">{value.toLocaleString("zh-CN")}</span>;
+        return value === null ? <span className="text-muted-foreground">-</span> : <span className="text-xs font-semibold tabular-nums">{value.toLocaleString("zh-CN")}</span>;
       },
     },
     {
       accessorKey: "growth",
-      header: `${range}增长`,
+      header: range + "增长",
+      size: 80,
       sortUndefined: "last",
       cell: ({ getValue }) => <GrowthValue value={getValue<number | null>()} />,
     },
     {
       accessorKey: "forks",
       header: "Fork",
+      size: 64,
       sortUndefined: "last",
       cell: ({ getValue }) => {
         const value = getValue<number | null>();
-        return <span className="tabular-nums text-muted-foreground">{value?.toLocaleString("zh-CN") ?? "-"}</span>;
+        return <span className="tabular-nums text-xs text-muted-foreground">{value?.toLocaleString("zh-CN") ?? "-"}</span>;
       },
     },
     {
       accessorKey: "capturedAt",
       header: "最近快照",
-      cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{formatUpdatedAt(getValue<string | null>())}</span>,
+      size: 100,
+      cell: ({ getValue }) => <span className="text-[11px] text-muted-foreground">{formatUpdatedAt(getValue<string | null>())}</span>,
     },
     {
       id: "status",
       header: "状态",
+      size: 72,
       cell: ({ row }) => row.original.capturedAt ? (
-        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700"><i className="size-1.5 rounded-full bg-emerald-600" />已采集</span>
+        <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><i className="size-1.5 rounded-full bg-emerald-500" />已采集</span>
       ) : (
-        <span className="text-xs text-muted-foreground">暂无快照</span>
+        <span className="text-[11px] text-muted-foreground/60">暂无快照</span>
       ),
       enableSorting: false,
     },
   ], [range]);
 
-  // TanStack Table owns internal table functions; React Compiler must not memoize this hook result.
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: filteredData,
@@ -132,31 +141,56 @@ export function StarTable({ data, range }: { data: StarLeaderboardRow[]; range: 
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 border-b bg-muted/20 px-5 py-3 md:px-6">
-        <label className="sr-only" htmlFor="repository-search">搜索仓库</label>
-        <Input id="repository-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索仓库、项目或主题" className="h-10 min-w-56 max-w-sm bg-card" />
-        <label className="sr-only" htmlFor="visibility-filter">筛选可见性</label>
-        <select id="visibility-filter" value={visibility} onChange={(event) => setVisibility(event.target.value)} className="h-10 rounded-lg border border-input bg-card px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/30">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+        <div className="relative flex-1 max-w-56">
+          <Search className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
+          <input
+            id="repository-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="搜索仓库…"
+            className="h-7 w-full rounded-md border bg-transparent pl-7 pr-2 text-[11px] outline-none transition-colors placeholder:text-muted-foreground/50 focus-visible:border-foreground/20 focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+        <select
+          id="visibility-filter"
+          value={visibility}
+          onChange={(event) => setVisibility(event.target.value)}
+          className="h-7 rounded-md border bg-transparent px-2 text-[11px] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
           <option value="all">全部可见性</option>
           <option value="public">公开仓库</option>
           <option value="private">私有仓库</option>
           <option value="unknown">暂无快照</option>
         </select>
-        <span className="text-xs text-muted-foreground">显示 {filteredData.length} / {data.length}</span>
-        <span className="ml-auto"><ExportButton rows={filteredData} range={range} /></span>
+        <span className="text-[11px] text-muted-foreground">{filteredData.length} / {data.length}</span>
+        <span className="ml-auto">
+          <ExportButton rows={filteredData} range={range} />
+        </span>
       </div>
+
+      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b bg-muted/40">
+              <tr key={headerGroup.id} className="border-b bg-muted/30">
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="h-12 whitespace-nowrap px-4 text-xs font-medium text-muted-foreground first:pl-6 last:pr-6">
+                  <th
+                    key={header.id}
+                    className="h-8 whitespace-nowrap px-3 text-[11px] font-medium text-muted-foreground first:pl-4 last:pr-4"
+                    style={{ width: header.column.columnDef.size }}
+                  >
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                      <Button variant="ghost" size="sm" className="-ml-3 h-10 px-3" onClick={header.column.getToggleSortingHandler()}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 -ml-1.5 px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
                         {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getIsSorted() === "asc" ? <ArrowUp /> : header.column.getIsSorted() === "desc" ? <ArrowDown /> : <ArrowUpDown />}
-                      </Button>
+                        {header.column.getIsSorted() === "asc" ? <ArrowUp className="size-3" /> : header.column.getIsSorted() === "desc" ? <ArrowDown className="size-3" /> : <ArrowUpDown className="size-3 text-muted-foreground/40" />}
+                      </button>
                     ) : flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
                 ))}
@@ -165,15 +199,15 @@ export function StarTable({ data, range }: { data: StarLeaderboardRow[]; range: 
           </thead>
           <tbody>
             {table.getRowModel().rows.length > 0 ? table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30">
+              <tr key={row.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20 transition-colors">
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="h-16 whitespace-nowrap px-4 text-sm first:pl-6 last:pr-6">
+                  <td key={cell.id} className="h-10 whitespace-nowrap px-3 text-xs first:pl-4 last:pr-4" style={{ width: cell.column.columnDef.size }}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
               </tr>
             )) : (
-              <tr><td colSpan={columns.length} className="h-40 text-center text-sm text-muted-foreground">没有匹配的仓库</td></tr>
+              <tr><td colSpan={columns.length} className="h-32 text-center text-xs text-muted-foreground">没有匹配的仓库</td></tr>
             )}
           </tbody>
         </table>

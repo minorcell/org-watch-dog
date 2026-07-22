@@ -3,8 +3,6 @@
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
-
 export function LogoutButton() {
   const router = useRouter();
 
@@ -15,15 +13,13 @@ export function LogoutButton() {
   }
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
+    <button
+      type="button"
       onClick={logout}
       aria-label="退出登录"
-      className="w-full justify-start text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground max-md:size-10 max-md:justify-center max-md:px-0"
+      className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <LogOut />
-      <span className="max-md:sr-only">退出登录</span>
-    </Button>
+      <LogOut className="size-3.5" />
+    </button>
   );
 }

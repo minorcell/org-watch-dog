@@ -4,8 +4,6 @@ import { useState } from "react";
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
-
 export function RefreshButton({ disabled }: { disabled: boolean }) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
@@ -36,12 +34,17 @@ export function RefreshButton({ disabled }: { disabled: boolean }) {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      {message ? <span className="text-xs text-muted-foreground" role="status">{message}</span> : null}
-      <Button onClick={refresh} disabled={disabled || isPending}>
-        {isPending ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}
+    <div className="flex items-center gap-2">
+      {message ? <span className="text-[11px] text-muted-foreground" role="status">{message}</span> : null}
+      <button
+        type="button"
+        onClick={refresh}
+        disabled={disabled || isPending}
+        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-xs font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-40"
+      >
+        {isPending ? <LoaderCircle className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
         {isPending ? "正在获取" : "获取最新快照"}
-      </Button>
+      </button>
     </div>
   );
 }

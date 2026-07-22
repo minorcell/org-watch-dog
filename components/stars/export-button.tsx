@@ -2,12 +2,11 @@
 
 import { Download } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import type { StarLeaderboardRow } from "@/lib/stars";
 
 export function ExportButton({ rows, range }: { rows: StarLeaderboardRow[]; range: string }) {
   function exportCsv() {
-    const header = ["排名", "项目", "仓库", "当前 Star", `${range} 天增长`, "Fork", "状态"];
+    const header = ["排名", "项目", "仓库", "当前 Star", `${range}增长`, "Fork", "状态"];
     const values = rows.map((row, index) => [
       String(index + 1),
       row.projectName,
@@ -20,7 +19,7 @@ export function ExportButton({ rows, range }: { rows: StarLeaderboardRow[]; rang
     const csv = [header, ...values]
       .map((line) => line.map((value) => `"${value.replaceAll('"', '""')}"`).join(","))
       .join("\n");
-    const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = `star-leaderboard-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -29,9 +28,13 @@ export function ExportButton({ rows, range }: { rows: StarLeaderboardRow[]; rang
   }
 
   return (
-    <Button variant="outline" onClick={exportCsv}>
-      <Download />
+    <button
+      type="button"
+      onClick={exportCsv}
+      className="inline-flex h-7 items-center gap-1.5 rounded-md border bg-transparent px-2.5 text-[11px] font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Download className="size-3" />
       导出 CSV
-    </Button>
+    </button>
   );
 }
