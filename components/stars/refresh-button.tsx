@@ -28,12 +28,10 @@ export function RefreshButton({ disabled }: { disabled: boolean }) {
         return;
       }
 
-      const msg =
-        result.failed > 0
-          ? `已更新 ${result.saved} 个仓库，${result.failed} 个失败`
-          : `已更新 ${result.saved} 个仓库`;
-
-      toast(msg, result.failed > 0 ? "error" : "success");
+      const snapshot = result.tasks?.find((t: { task: string }) => t.task === "collect-star-snapshots");
+      const msg = snapshot?.message ?? "采集完成";
+      const isError = snapshot ? !snapshot.ok : false;
+      toast(msg, isError ? "error" : "success");
       router.refresh();
     } catch {
       toast("无法连接采集服务", "error");
