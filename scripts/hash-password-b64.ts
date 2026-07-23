@@ -7,5 +7,9 @@ if (!password) {
   process.exit(1);
 }
 
-const hash = await bcrypt.hash(password, 12);
-console.log(Buffer.from(hash, "utf8").toString("base64"));
+async function main() {
+  const hash = await bcrypt.hash(password, 12);
+  console.log(Buffer.from(hash, "utf8").toString("base64"));
+}
+
+main();
