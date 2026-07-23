@@ -60,7 +60,7 @@ function getErrorMessage(status: number, fallback: string) {
 export async function fetchRepositoryStarStats(repository: ConfiguredRepository): Promise<RepositoryStarStats> {
   const response = await fetch(
     `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}`,
-    { headers: githubHeaders(), next: { revalidate: 300, tags: ["github-repository-stats"] } },
+    { headers: githubHeaders(), cache: "no-store" },
   );
 
   if (!response.ok) {
@@ -136,7 +136,7 @@ export async function fetchOrgRepos(org: string): Promise<OrgRepoSummary[]> {
 
   while (true) {
     const url = `https://api.github.com/orgs/${encodeURIComponent(org)}/repos?per_page=${perPage}&page=${page}&sort=full_name`;
-    const response = await fetch(url, { headers: githubHeaders() });
+    const response = await fetch(url, { headers: githubHeaders(), cache: "no-store" });
 
     if (!response.ok) {
       throw new Error(`GitHub API error ${response.status} listing org repos`);
@@ -185,7 +185,7 @@ export type RepoMetadata = {
 export async function fetchRepoMetadata(owner: string, repo: string): Promise<RepoMetadata> {
   const response = await fetch(
     `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
-    { headers: githubHeaders() },
+    { headers: githubHeaders(), cache: "no-store" },
   );
   if (!response.ok) throw new Error(`GitHub API error ${response.status} for ${owner}/${repo}`);
 
